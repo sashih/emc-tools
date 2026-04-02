@@ -1,10 +1,49 @@
 import netCDF4
 import numpy as np
+import matplotlib.pyplot as plt
+import cartopy.crs as ccrs
+import cartopy.feature as cfeature
+from mpl_toolkits.basemap import Basemap
 
 def main():
     fname = "./data/GLAD-M35.r0.1-n4.nc"
     inspect_netcdf(fname)
 
+def plot_map_basemap(lons, lats, data, title="Mapview", unit="%", cmap="RdBu_r"):
+    """
+    使用 Basemap 繪製全球 2D 地圖。
+    """
+    fig = plt.figure(figsize=(12, 8))
+    
+    # 1. 初始化地圖投影 (cyl 代表 Cylindrical Equidistant，類似 PlateCarree)
+    # llcrnrlat/lon: 左下角緯度/經度；urcrnrlat/lon: 右上角
+    m = Basemap(projection='cyl', llcrnrlat=-90, urcrnrlat=90, 
+                llcrnrlon=-180, urcrnrlon=180, resolution='c')
+    
+    # 2. 繪製地理特徵
+    m.drawcoastlines(linewidth=0.8)
+    m.drawcountries(linewidth=0.5, linestyle=':')
+    m.drawparallels(np.arange(-90., 91., 30.), labels=[1,0,0,0], fontsize=10)
+    m.drawmeridians(np.arange(-180., 181., 60.), labels=[0,0,0,1], fontsize=10)
+
+    # 3. 準備網格數據
+    # Basemap 的 pcolormesh 通常需要 2D 的經緯度矩陣
+    lon_2d, lat_2d = np.meshgrid(lons, lats)
+    x, y = m(lon_2d, lat_2d) # 將經緯度轉換為地圖投影座標
+
+    # 4. 繪製數據
+    # 注意: Basemap 的 pcolormesh 處理方式與 Cartopy 略有不同
+    im = m.pcolormesh(x, y, data, cmap=cmap, shading='auto')
+
+    # 5. 顏色條與標題
+    cbar = m.colorbar(im, location='bottom', pad="10%")
+    
+    plt.title(title, fontsize=14)
+    return fig, m
+
+# 測試呼叫：
+# plot_map_basemap(lons, lats, data_slice, title="dVs at 2800km")
+# plt.show()
 
 
 def get_nc_slice(file_path: str, var_name: str, target_depth: float):
