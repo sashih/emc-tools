@@ -4,13 +4,70 @@ import matplotlib.pyplot as plt
 import cartopy.crs as ccrs
 import cartopy.feature as cfeature
 from mpl_toolkits.basemap import Basemap
+from scipy.interpolate import griddata
+import shtns
 
 def main():
     fname = "./data/GLAD-M35.r0.1-n4.nc"
     inspect_netcdf(fname)
 
 import numpy as np
-from scipy.interpolate import griddata
+
+def degree_amplitude(nmax, l_array, zlm):
+    """
+    計算各階 (Degree l) 的振幅能譜 (Power Spectrum)。
+    """
+    Vl = np.zeros(nmax + 1)
+    for l in range(nmax + 1):
+        # 找出所有符合當前階數 l 的索引 (包含不同的 m)
+        idx = (l_array == l)
+        # Power Spectrum: sum of |zlm|^2 for each l
+        Vl[l] = np.sqrt(np.sum(np.abs(zlm[idx])**2) / (2*l + 1))
+    return Vl
+
+def run_sh_analysis(data_2d, nmax=20):
+    """
+    對 2D 網格數據進行球諧函數展開。
+    
+    Args:
+        data_2d: 2D 陣列 [nlat, nlon]，需為 regular grid (含兩極)
+        nmax: 最高展開階數
+    """
+    nlat, nlon = data_2d.shape
+    data_ready = np.array(data_2d, dtype=np.float64, copy=True)
+
+    # 1. 初始化 shtns 對象
+    # mmax 通常設為與 nmax 相同
+    sh = shtns.sht(nmax, nmax)
+    
+    # 2. 設定網格 (指定為包含兩極的常規網格)
+    sh.set_grid(nlat, nlon, flags=shtns.sht_reg_poles)
+    
+    # 3. 執行正向變換 (Analysis)
+    # zlm 是複數陣列，存儲球諧係數
+    zlm = sh.analys(data_ready)
+    
+    # 4. 計算能譜 (Degree Amplitude)
+    Vl = degree_amplitude(nmax, sh.l, zlm)
+    
+    return sh, zlm, Vl
+
+def reconstruct_from_sh(sh, zlm):
+    """
+    將球諧係數 zlm 重新合成回空間域 (Synthesis)。
+    
+    Args:
+        sh: 已經初始化過的 shtns 對象
+        zlm: 球諧展開係數
+    Returns:
+        recon_data: 重構後的 2D 空間陣列 [nlat, nlon]
+    """
+    # 執行反向變換 (Synthesis)
+    # y = sh.synth(zlm) 會根據 sh 當初設定的 grid (nlat, nlon) 產出資料
+    recon_data = sh.synth(zlm)
+    
+    return recon_data
+
 
 def generate_fibonacci_grid(nu=16):
     """
