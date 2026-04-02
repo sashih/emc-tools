@@ -9,6 +9,44 @@ def main():
     fname = "./data/GLAD-M35.r0.1-n4.nc"
     inspect_netcdf(fname)
 
+
+def calculate_surface_average(lons, lats, data):
+    """
+    計算全球表面加權平均值。
+    """
+    # 1. 將緯度轉為餘緯 (Colatitude) theta，並轉為弧度
+    # 假設 lats 範圍是 -90 到 90
+    theta = np.deg2rad(90 - lats) 
+    
+    # 2. 自動計算網格間距 (弧度)
+    # 這裡假設是均勻網格，取第一個差值
+    dtheta = np.abs(np.deg2rad(lats[1] - lats[0]))
+    dphi = np.abs(np.deg2rad(lons[1] - lons[0]))
+    
+    # 3. 建立 2D 的 sin(theta) 權重矩陣，形狀需與 data 一致 [n_lat, n_lon]
+    # 使用 np.meshgrid 或直接利用 broadcasting
+    weights = np.sin(theta).reshape(-1, 1) # 轉為 [n_lat, 1] 方便與 [n_lat, n_lon] 相乘
+    
+    # 4. 計算加權總和與總面積
+    # 面積元素 dA = R^2 * sin(theta) * dtheta * dphi (R^2 可約掉)
+    total_weighted_sum = np.sum(data * weights) * dtheta * dphi
+    total_area = np.sum(np.ones_like(data) * weights) * dtheta * dphi   # compare to 4*pi 
+    
+    surf_avg = total_weighted_sum / total_area
+    return surf_avg
+
+def get_velocity_anomaly(lons, lats, data):
+    """
+    計算百分比偏差: (x - mean) / mean * 100%
+    """
+    avg = calculate_surface_average(lons, lats, data)
+    
+    # 套用公式: (x - avg) / avg * 100
+    anomaly = ((data - avg) / avg) * 100
+    
+    print(f"[{'CALC':^10}] 球面平均值: {avg:.4f} | 偏差範圍: {np.min(anomaly):.2f}% ~ {np.max(anomaly):.2f}%")
+    return anomaly
+
 def plot_map_basemap(lons, lats, data, title="Mapview", unit="%", cmap="RdBu_r"):
     """
     使用 Basemap 繪製全球 2D 地圖。
