@@ -23,6 +23,20 @@ A Python utility toolkit for analyzing and visualizing global seismic tomography
 ### 🗺️ Visualization
 - **`plot_map_basemap`**: Generate publication-quality global maps with customized projections, coastlines, and symmetric color scales (e.g., RdBu).
 
+## 🖼️ Gallery (Example Output)
+
+Below are the results generated from `example.py` using the **GLAD-M35** model at 2800 km depth:
+
+| 1. Velocity Anomaly Map | 2. Statistical PDF Comparison |
+|:---:|:---:|
+| ![Mapview](gallery/example_map.jpg) | ![Histogram](gallery/example_hist.jpg) |
+| *Global dV anomaly using Basemap* | *Raw vs. Evenly-sampled grid distribution* |
+
+| 3. Evenly Distributed Grid | 4. SH Reconstruction (nmax=20) |
+|:---:|:---:|
+| ![Grid](gallery/example_grid.jpg) | ![Reconstruction](gallery/example_reconstruction.jpg) |
+| *Fibonacci Sphere sampling points* | *Synthesis check after SH Analysis* |
+
 ## Requirements
 - `netCDF4`, `numpy`, `scipy`, `matplotlib`
 - `basemap` (for 2D mapping)
