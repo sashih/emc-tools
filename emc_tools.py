@@ -9,6 +9,63 @@ def main():
     fname = "./data/GLAD-M35.r0.1-n4.nc"
     inspect_netcdf(fname)
 
+import numpy as np
+from scipy.interpolate import griddata
+
+def generate_fibonacci_grid(nu=16):
+    """
+    產生均勻分佈的全球採樣點 (Fibonacci Sphere)。
+    """
+    n = nu**2 * 10 
+    phi = np.pi * (3. - np.sqrt(5.))  # 黃金角度
+    
+    indices = np.arange(n)
+    y = 1 - (indices / float(n - 1)) * 2  # y 從 1 到 -1
+    radius = np.sqrt(1 - y * y) 
+    
+    theta = phi * indices 
+    
+    x = np.cos(theta) * radius
+    y_coords = y # 修正變數名稱避免混淆
+    z = np.sin(theta) * radius
+    
+    # 轉換為經緯度
+    lon = np.rad2deg(np.arctan2(z, x))
+    lat = 90 - np.rad2deg(np.arccos(y_coords)) # 使用 arccos(y) 較直接
+    
+    return lon, lat
+
+def resample_tomography(old_lons, old_lats, data_2d, nu=16, method='linear'):
+    """
+    將傳統經緯度網格數據重採樣到均勻分佈的網格上。
+    
+    Args:
+        old_lons, old_lats: 原始 1D 經緯度陣列
+        data_2d: 原始 2D 數據 (shape: [n_lat, n_lon])
+        nu: 控制網格密度的參數
+        method: 插值方法 'linear', 'nearest', 'cubic'
+    """
+    # 1. 產生均勻網格點
+    new_lons, new_lats = generate_fibonacci_grid(nu=nu)
+    
+    # 2. 準備原始數據的座標點
+    # griddata 需要 (N, 2) 的座標輸入
+    lon_mg, lat_mg = np.meshgrid(old_lons, old_lats)
+    points = np.vstack((lon_mg.flatten(), lat_mg.flatten())).T
+    values = data_2d.flatten()
+    
+    # 3. 執行插值
+    new_points = np.vstack((new_lons, new_lats)).T
+    resampled_data = griddata(points, values, new_points, method=method)
+    
+    # 處理可能的 NaN (邊界問題)
+    if np.isnan(resampled_data).any():
+        resampled_data = griddata(points, values, new_points, method='nearest')
+        print(f"[{'WARN':^10}] 部分點使用最近鄰插值填補 NaN")
+
+    print(f"[{'DONE':^10}] 已重採樣至 {len(new_lons)} 個均勻分佈點 (nu={nu})")
+    return new_lons, new_lats, resampled_data
+
 
 def calculate_surface_average(lons, lats, data):
     """
@@ -31,7 +88,7 @@ def calculate_surface_average(lons, lats, data):
     # 面積元素 dA = R^2 * sin(theta) * dtheta * dphi (R^2 可約掉)
     total_weighted_sum = np.sum(data * weights) * dtheta * dphi
     total_area = np.sum(np.ones_like(data) * weights) * dtheta * dphi   # compare to 4*pi 
-    
+
     surf_avg = total_weighted_sum / total_area
     return surf_avg
 
